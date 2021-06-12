@@ -82,8 +82,9 @@ class ReadPacket:
         """Read a variable length int and return it."""
         value = 0
         for i in range(5):
-            byte = self.buffer[i]
+            byte = self.buffer[self.pos]
             value |= (byte & 127) << (i * 7)
+            self.pos += 1
 
             if not byte & 0x80:
                 break
@@ -96,8 +97,9 @@ class ReadPacket:
         """Read a variable length long and return it."""
         value = 0
         for i in range(10):
-            byte = self.buffer[i]
+            byte = self.buffer[self.pos]
             value |= (byte & 127) << (i * 7)
+            self.pos += 1
 
             if not byte & 0x80:
                 break
@@ -238,10 +240,3 @@ class WritePacket:
     def writeUUID(self, value: uuid.UUID) -> 'WritePacket':
         """Write an UUID."""
         return self.writeBytes(value.bytes)
-
-
-class Packet(ReadPacket, WritePacket):
-    __slots__ = 'buffer', 'pos'
-    def __init__(self, buffer: ByteString = None):
-        self.buffer = bytearray() if buffer is None else bytearray(buffer)
-        self.pos = 0
