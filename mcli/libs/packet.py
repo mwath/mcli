@@ -1,11 +1,10 @@
 import uuid
 from ctypes import c_uint32, c_uint64
-from enum import Enum
 from struct import Struct
-from typing import ByteString, Union
+from typing import ByteString, Union, Any
 
 
-class Types(Enum, Struct):
+class Types:
     byte = Struct('>b')
     sshort = Struct('>h')
     ushort = Struct('>H')
@@ -16,7 +15,6 @@ class Types(Enum, Struct):
 
 
 class ReadPacket:
-    __slots__ = 'buffer', 'pos'
     def __init__(self, buffer: ByteString = None):
         self.buffer = bytearray() if buffer is None else bytearray(buffer)
         self.pos = 0
@@ -134,7 +132,6 @@ class ReadPacket:
 
 
 class WritePacket:
-    __slots__ = 'buffer'
     def __init__(self):
         self.buffer = bytearray()
 
@@ -148,7 +145,7 @@ class WritePacket:
 
     def writeStruct(self, fmt: Union[Struct, str, bytes], value: Any) -> 'WritePacket':
         st = Struct('>' + fmt) if isinstance(fmt, (str, bytes)) else fmt
-        return self.writeBytes(st.pack(fmt, value))
+        return self.writeBytes(st.pack(value))
 
     def writeUByte(self, value: int) -> 'WritePacket':
         """Write an unsigned byte."""
@@ -189,7 +186,7 @@ class WritePacket:
     def writeString(self, value: ByteString) -> 'WritePacket':
         """Write a string."""
         if isinstance(value, str):
-            value = value.decode('utf-8')
+            value = value.encode('utf-8')
 
         return self.writeVarInt(len(value)).writeBytes(value)
 
@@ -244,4 +241,7 @@ class WritePacket:
 
 
 class Packet(ReadPacket, WritePacket):
-    pass
+    __slots__ = 'buffer', 'pos'
+    def __init__(self, buffer: ByteString = None):
+        self.buffer = bytearray() if buffer is None else bytearray(buffer)
+        self.pos = 0
