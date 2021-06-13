@@ -1,1 +1,1 @@
-from status import ResponseStatus, Pong
+from .status import ResponseStatus, Pong
