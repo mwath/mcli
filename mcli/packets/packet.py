@@ -5,21 +5,22 @@ from mcli.packets import types
 
 class PacketMeta(type):
     def __new__(cls, clsname: str, bases: tuple, classdict: dict, **kwds):
-        if '__annotations__' in classdict:
+        if len(bases) > 0:
             if 'id' not in kwds:
                 raise ValueError('Packet id is missing.')
 
             classdict['_id'] = kwds['id']
             classdict['_types'] = _types = OrderedDict()
 
-            for name, type_ in classdict['__annotations__'].items():
-                if isinstance(type_, type):
-                    type_ = type_.__name__
+            if '__annotations__' in classdict:
+                for name, type_ in classdict['__annotations__'].items():
+                    if isinstance(type_, type):
+                        type_ = type_.__name__
 
-                if type_ not in types.registered:
-                    raise TypeError(f'The type {type_} is not supported.')
+                    if type_ not in types.registered:
+                        raise TypeError(f'The type {type_} is not supported.')
 
-                _types[name] = types.registered[type_]
+                    _types[name] = types.registered[type_]
 
         return super().__new__(cls, clsname, bases, classdict)
 
