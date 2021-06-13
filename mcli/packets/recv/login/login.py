@@ -9,8 +9,7 @@ class DisconnectLogin(Packet, id=0x00):
 class EncryptionRequest(Packet, id=0x01):
     server_id: str
     public_key: bytearray
-    verify_token :bytearray
-    pass
+    verify_token: bytearray
 
 
 class LoginSuccess(Packet, id=0x02):
@@ -25,5 +24,4 @@ class SetCompression(Packet, id=0x03):
 class LoginPluginRequest(Packet, id=0x04):
     message_id: varint
     channel: str
-    #data: bytearray
-    pass
+    # data: bytearray

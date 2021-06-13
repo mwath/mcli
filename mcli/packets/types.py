@@ -1,6 +1,5 @@
 from mcli.packets.basepacket import ReadPacket, WritePacket
 
-
 __all__ = [
     'registered', 'varint', 'varlong', 'ubyte', 'sbyte', 'ushort',
     'sshort', 'long', 'double', 'position', 'angle', 'uuid'
@@ -26,15 +25,16 @@ class bool_type:
     pack = WritePacket.writeBool
     unpack = ReadPacket.readBool
 
+
 class bytearray_type:
     @classmethod
-    def pack(cls, packet:WritePacket, value:bytearray):
+    def pack(cls, packet: WritePacket, value: bytearray):
         packet.writeVarInt(len(value))
         packet.writeBytes(value)
-    @classmethod
-    def unpack(cls, packet:ReadPacket) -> bytearray:
-        return packet.readBytes(packet.readVarInt())
 
+    @classmethod
+    def unpack(cls, packet: ReadPacket) -> bytearray:
+        return packet.readBytes(packet.readVarInt())
 
 
 registered = {
@@ -42,7 +42,7 @@ registered = {
     'float': float_type,
     'str': str_type,
     'bool': bool_type,
-    'bytearray':bytearray_type
+    'bytearray': bytearray_type
 }
 
 
