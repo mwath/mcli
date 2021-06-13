@@ -26,12 +26,23 @@ class bool_type:
     pack = WritePacket.writeBool
     unpack = ReadPacket.readBool
 
+class bytearray_type:
+    @classmethod
+    def pack(cls, packet:WritePacket, value:bytearray):
+        packet.writeVarInt(len(value))
+        packet.writeBytes(value)
+    @classmethod
+    def unpack(cls, packet:ReadPacket) -> bytearray:
+        return packet.readBytes(packet.readVarInt())
+
+
 
 registered = {
     'int': int_type,
     'float': float_type,
     'str': str_type,
-    'bool': bool_type
+    'bool': bool_type,
+    'bytearray':bytearray_type
 }
 
 
