@@ -1,5 +1,5 @@
 import asyncio
-from mcli import Packet
+from mcli.packets.packet import Packet, WritePacket
 
 
 class UncompressedProtocol(asyncio.Protocol):
@@ -26,7 +26,8 @@ class UncompressedProtocol(asyncio.Protocol):
         pass
 
     def send(self, packet: Packet):
-        self.transport.write(Packet().writeVarInt(len(packet)).buffer + packet.buffer)
+        data = packet.export
+        self.transport.write(WritePacket().writeVarInt(len(data)).buffer + data.buffer)
 
 
 class CompressedProtocol(asyncio.Protocol):
