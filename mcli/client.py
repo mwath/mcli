@@ -1,15 +1,12 @@
 import asyncio
-from mcli.protocol import UncompressedProtocol
-from mcli.packets.manager import Manager
+
+from mcli.packets.manager import Manager, State
 from mcli.packets.send.handshaking import Handshake
 from mcli.packets.send.status import RequestStatus
+from mcli.protocol import UncompressedProtocol
 
 
 class Client:
-	def __init__(self):
-		self.protocol: asyncio.Protocol = None
-		self.manager = Manager(self)
-
 	async def query_status(self, host: str, port: int):
 		loop = asyncio.get_running_loop()
 		_, self.protocol = await loop.create_connection(UncompressedProtocol, host, port)
@@ -33,3 +30,8 @@ class Client:
 	@property
 	def is_logged(self):
 		return False
+    def __init__(self):
+        self.protocol: asyncio.Protocol = None
+        self.manager = Manager(self)
+        self.state = State.handshaking
+

@@ -1,3 +1,6 @@
-from mcli.packets.packet import ReadPacket, WritePacket, Packet
+from mcli.packets.packet import Packet, ReadPacket, WritePacket
 
-__all__ = ['ReadPacket', 'WritePacket', 'Packet']
+# Import packets after the initialization of the packet module
+from mcli.packets import recv, send  # isort: split
+
+__all__ = ['Packet', 'ReadPacket', 'WritePacket', 'recv', 'send']

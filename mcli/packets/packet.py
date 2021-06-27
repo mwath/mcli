@@ -1,28 +1,51 @@
 from collections import OrderedDict
+
+from mcli.packets.types import registered as registered_types
 from mcli.packets.basepacket import ReadPacket, WritePacket
-from mcli.packets import types
+from mcli.packets.manager import Manager, State
 
 
 class PacketMeta(type):
-    def __new__(cls, clsname: str, bases: tuple, classdict: dict, **kwds):
-        if len(bases) > 0:
-            if 'id' not in kwds:
-                raise ValueError('Packet id is missing.')
+    def __new__(cls, clsname: str, bases: tuple, classdict: dict, **kwargs):
+        if len(bases) == 0:
+            return super().__new__(cls, clsname, bases, classdict)
 
-            classdict['_id'] = kwds['id']
-            classdict['_types'] = _types = OrderedDict()
+        if 'id' not in kwargs:
+            raise ValueError('Packet id is missing.')
 
-            if '__annotations__' in classdict:
-                for name, type_ in classdict['__annotations__'].items():
-                    if isinstance(type_, type):
-                        type_ = type_.__name__
+        module = classdict['__module__']
+        if module.startswith('mcli.packets'):
+            state = module.split('.')[3].lower()
+            register = module.split('.')[2] == 'recv'
+        else:
+            if 'state' not in kwargs:
+                raise ValueError('Packet state is missing.')
 
-                    if type_ not in types.registered:
-                        raise TypeError(f'The type {type_} is not supported.')
+            state = str(kwargs['state']).lower()
+            register = kwargs.get('register', False)
 
-                    _types[name] = types.registered[type_]
+        if state not in State.__members__:
+            raise ValueError(f'{state!r} is not a valid state.')
 
-        return super().__new__(cls, clsname, bases, classdict)
+        classdict['_id'] = kwargs['id']
+        classdict['_state'] = state = State[state]
+        classdict['_types'] = types = OrderedDict()
+
+        if '__annotations__' in classdict:
+            for name, type_ in classdict['__annotations__'].items():
+                if isinstance(type_, type):
+                    type_ = type_.__name__
+
+                if type_ not in registered_types:
+                    raise TypeError(f'The type {type_} is not supported.')
+
+                types[name] = registered_types[type_]
+
+        klass = super().__new__(cls, clsname, bases, classdict)
+        if register:
+            Manager._add(state, klass)
+
+        return klass
 
 
 class Packet(metaclass=PacketMeta):

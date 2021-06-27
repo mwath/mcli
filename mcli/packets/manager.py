@@ -1,19 +1,39 @@
-import mcli
 import warnings
+from enum import IntEnum
+from typing import Optional, Callable
+
+import mcli
+
+
+class State(IntEnum):
+    handshaking = 0
+    status = 1
+    login = 2
+    play = 3
 
 
 class Manager:
-    register = {}
+    packets = {}
 
     def __init__(self, client: 'mcli.Client'):
         self.client = client
 
-    def add(self, cls):
-        if cls._id in self.register:
-            warnings.warn(f'Packet id 0x{cls._id:x} ({cls.__name__}) is already registered!')
+    @classmethod
+    def _add(cls, state: State, packet: 'mcli.Packet'):
+        key = (state, packet._id)
+        if key in cls.packets:
+            warnings.warn(f'Packet id 0x{packet._id:x} ({packet.__name__}) is already registered in state {state!r}!')
         else:
-            self.register[cls._id] = cls
+            cls.packets[key] = packet
 
-    def get(self, packet_id: int):
+    @classmethod
+    def register(cls, state: State) -> Callable[['mcli.Packet'], 'mcli.Packet']:
+        def wrapper(pkt: 'mcli.Packet') -> 'mcli.Packet':
+            cls._add(state, pkt)
+            return pkt
+
+        return wrapper
+
+    def get(self, packet_id: int) -> Optional['mcli.Packet']:
         # return self.recv.get(packet_id, version=self.client.protocol.version)
-        return self.register.get(packet_id)
+        return self.packets.get((self.client.state, packet_id))
