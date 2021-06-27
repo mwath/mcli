@@ -1,7 +1,7 @@
 import uuid
 from ctypes import c_uint32, c_uint64
 from struct import Struct
-from typing import ByteString, Union, Any
+from typing import Any, ByteString, Union
 
 
 class Types:
@@ -21,6 +21,12 @@ class ReadPacket:
 
     def __len__(self):
         return len(self.buffer)
+
+    def __repr__(self) -> str:
+        return f'<ReadPacket {bytes(self)}>'
+
+    def __bytes__(self) -> bytes:
+        return bytes(self.buffer)
 
     @property
     def remaining(self):
@@ -139,6 +145,12 @@ class WritePacket:
 
     def __len__(self):
         return len(self.buffer)
+
+    def __repr__(self) -> str:
+        return f'<ReadPacket {bytes(self)}>'
+
+    def __bytes__(self) -> bytes:
+        return bytes(self.buffer)
 
     def writeBytes(self, value: bytearray) -> 'WritePacket':
         """Write a number of bytes into the buffer."""
