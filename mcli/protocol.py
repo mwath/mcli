@@ -1,11 +1,16 @@
 import asyncio
-from mcli.packets.packet import Packet, WritePacket
+
+from mcli.packets.manager import Manager
+from mcli.packets.packet import Packet, ReadPacket, WritePacket
 
 
 class UncompressedProtocol(asyncio.Protocol):
-    def __init__(self):
+    def __init__(self, manager: Manager):
         self.buffer = bytearray()
+        self.length = 0
+        self.pos = 0
         self.transport: asyncio.Transport = None
+        self.manager = manager
 
     def connection_made(self, transport: asyncio.Transport):
         self.transport = transport
@@ -14,7 +19,26 @@ class UncompressedProtocol(asyncio.Protocol):
         pass
 
     def data_received(self, data):
-        print(data)
+        self.buffer.extend(data)
+
+        while len(self.buffer) > self.length:
+            if self.length == 0:
+                for i in range(5):
+                    byte = self.buffer[self.pos]
+                    self.length |= (byte & 127) << (i * 7)
+                    self.pos += 1
+
+                    if not byte & 0x80:
+                        break
+                else:
+                    raise ValueError('VarInt is too long!')
+
+            if len(self.buffer) >= self.length:
+                packet = ReadPacket(self.buffer[self.pos:self.pos+self.length])
+                self.manager.handle(packet.readVarInt(), packet)
+
+                del self.buffer[:self.pos+self.length]
+                self.length = self.pos = 0
 
     def datagram_received(self, data, addr):
         self.data_received(data)
