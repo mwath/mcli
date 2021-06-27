@@ -34,7 +34,6 @@ class Packet(metaclass=PacketMeta):
         attr = ' '.join(f'{name}={getattr(self, name)!r}' for name in self._types)
         return f'<{self.__class__.__name__} {attr}>'
 
-    @property
     def export(self) -> bytes:
         packet = WritePacket().writeVarInt(self._id)
 

@@ -26,7 +26,7 @@ class UncompressedProtocol(asyncio.Protocol):
         pass
 
     def send(self, packet: Packet):
-        data = packet.export
+        data = packet.export()
         self.transport.write(WritePacket().writeVarInt(len(data)).buffer + data.buffer)
 
 
