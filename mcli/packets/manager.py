@@ -37,3 +37,14 @@ class Manager:
     def get(self, packet_id: int) -> Optional['mcli.Packet']:
         # return self.recv.get(packet_id, version=self.client.protocol.version)
         return self.packets.get((self.client.state, packet_id))
+
+    def handle(self, packet_id: int, packet: 'mcli.ReadPacket'):
+        """Handle a single packet."""
+        factory = self.get(packet_id)
+        if factory is None:
+            # TODO: add debug logging
+            return
+
+        pkt = factory.from_bytes(packet)
+        # TODO: add handlers
+        print(pkt)
