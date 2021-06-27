@@ -7,4 +7,3 @@ class Handshake(Packet, id=0x00):
     server_address: str
     server_port: ushort
     next_state: varint
-

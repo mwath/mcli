@@ -1,2 +1,4 @@
 from .handshaking import Handshake
-from .status import RequestStatus
+from .status import Ping, RequestStatus
+
+__all__ = ['Handshake', 'RequestStatus', 'Ping']
