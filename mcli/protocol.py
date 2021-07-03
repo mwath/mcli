@@ -79,10 +79,38 @@ class UncompressedProtocol(CommonProtocol, asyncio.DatagramProtocol):
         print(exc)
 
 
+class CompressedProtocol(UncompressedProtocol):
+    def __init__(self, manager: Manager, threshold: int):
+        self.threshold = threshold
+        super().__init__(manager)
+
+    def datagram_received(self, data, addr):
+        # UDP does not split packets
+        packet = ReadPacket(data)
+        length = packet.readVarInt()
+        pos = packet.pos
+
+        if packet.remaining < length:
+            print(packet)
+            raise Exception("Not enough data!")
+
+        data_length = packet.readVarInt()
+
+        if data_length > self.threshold:
+            raise Exception("Wrong threshold!")
+
+        super().datagram_received(zlib.decompress(packet.readBytes(length - (packet.pos - pos))))
+
+        if packet.remaining > 0:
+            print(packet)
+            raise Exception("Remaining data!")
+
     def send(self, packet: Packet):
-        data = packet.export()
-        self.transport.write(WritePacket().writeVarInt(len(data)).buffer + data.buffer)
+        data = packet.export().buffer
+        length = len(data)
 
+        if length >= self.threshold:
+            data = WritePacket().writeVarInt(length).buffer + zlib.compress(data)
+            length = len(data)
 
-class CompressedProtocol(asyncio.Protocol):
-    """TODO"""
+        self.transport.write(WritePacket().writeVarInt(length).buffer + data)
