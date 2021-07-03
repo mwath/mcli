@@ -46,5 +46,5 @@ class Manager:
             return
 
         pkt = factory.from_bytes(packet)
+        self.client.dispatch(pkt)
         # TODO: add handlers
-        print(pkt)
