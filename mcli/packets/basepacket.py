@@ -1,7 +1,7 @@
 import uuid
 from ctypes import c_uint32, c_uint64
 from struct import Struct
-from typing import Any, ByteString, Union
+from typing import Any, ByteString, Tuple, Union
 
 
 class Types:
@@ -38,7 +38,7 @@ class ReadPacket:
         self.pos = self.pos + size
         return value
 
-    def readStruct(self, fmt: Union[Struct, str, bytes]) -> tuple:
+    def readStruct(self, fmt: Union[Struct, str, bytes]) -> Tuple:
         st = Struct('>' + fmt) if isinstance(fmt, (str, bytes)) else fmt
         self.pos, offset = self.pos + st.size, self.pos
         return st.unpack_from(self.buffer, offset)
@@ -114,7 +114,7 @@ class ReadPacket:
 
         return value
 
-    def readPosition(self) -> tuple[int]:
+    def readPosition(self) -> Tuple[int]:
         """Read a position and return it."""
         value = self.readStruct('>H')
         x = value >> 38
@@ -238,7 +238,7 @@ class WritePacket:
         self.buffer.append(value & 0x7f)
         return self
 
-    def writePosition(self, value: tuple[int]) -> 'WritePacket':
+    def writePosition(self, value: Tuple[int]) -> 'WritePacket':
         """Write a position."""
         x, y, z = value
         value = ((x & 0x3FFFFFF) << 38) | ((z & 0x3FFFFFF) << 12) | (y & 0xFFF)
