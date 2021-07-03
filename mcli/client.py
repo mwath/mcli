@@ -4,12 +4,13 @@ from mcli.packets.manager import Manager, State
 from mcli.packets.send.handshaking import Handshake
 from mcli.packets.send.status import RequestStatus
 from mcli.protocol import UncompressedProtocol
+from mcli.protocol import CommonProtocol, TCPProtocol
 from mcli.utils import is_valid_ip
 
 
 class Client:
     def __init__(self):
-        self.protocol: asyncio.Protocol = None
+        self.protocol: CommonProtocol = None
         self.manager = Manager(self)
         self.state = State.handshaking
 

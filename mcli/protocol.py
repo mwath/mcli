@@ -1,14 +1,17 @@
 import asyncio
+import zlib
 
 from mcli.packets.manager import Manager
 from mcli.packets.packet import Packet, ReadPacket, WritePacket
 
 
-class UncompressedProtocol(asyncio.Protocol):
+__all__ = ['CommonProtocol', 'TCPProtocol', 'UncompressedProtocol', 'CompressedProtocol']
+
+
+class CommonProtocol(asyncio.BaseProtocol):
+    __slots__ = ('transport', 'manager')
+
     def __init__(self, manager: Manager):
-        self.buffer = bytearray()
-        self.length = 0
-        self.pos = 0
         self.transport: asyncio.Transport = None
         self.manager = manager
 
@@ -16,9 +19,22 @@ class UncompressedProtocol(asyncio.Protocol):
         self.transport = transport
 
     def connection_lost(self, exc: Exception):
-        pass
+        print("connection lost:", exc)
+
+    def send(self, packet: Packet):
+        data = packet.export()
+        self.transport.write(WritePacket().writeVarInt(len(data)).buffer + data.buffer)
+
+
+class TCPProtocol(CommonProtocol, asyncio.Protocol):
+    def __init__(self, manager: Manager):
+        self.buffer = bytearray()
+        self.length = 0
+        self.pos = 0
+        super().__init__(manager)
 
     def data_received(self, data):
+        # TCP can split a single packet into several segments.
         self.buffer.extend(data)
 
         while len(self.buffer) > self.length:
@@ -40,14 +56,28 @@ class UncompressedProtocol(asyncio.Protocol):
                 del self.buffer[:self.pos+self.length]
                 self.length = self.pos = 0
 
+    def eof_received(self):
+        print("eof received")
+
+
+class UncompressedProtocol(CommonProtocol, asyncio.DatagramProtocol):
     def datagram_received(self, data, addr):
-        self.data_received(data)
+        # UDP does not split packets
+        packet = ReadPacket(data)
+        length = packet.readVarInt()
+
+        if packet.remaining < length:
+            print(packet)
+            raise Exception("Not enough data!")
+
+        self.manager.handle(packet.readVarInt(), packet)
+        if packet.remaining > 0:
+            print(packet)
+            raise Exception("Remaining data!")
 
     def error_received(self, exc):
         print(exc)
 
-    def eof_received(self):
-        pass
 
     def send(self, packet: Packet):
         data = packet.export()
