@@ -1,12 +1,14 @@
 import asyncio
+import json
+import time
 from typing import Dict, List, Tuple
 
 from mcli.packets.manager import Manager, State
 from mcli.packets.packet import Packet, ReadPacket
+from mcli.packets.recv.status.response import Pong, ResponseStatus
 from mcli.packets.send.handshaking import Handshake
 from mcli.packets.send.status import RequestStatus
-from mcli.protocol import UncompressedProtocol
-from mcli.protocol import CommonProtocol, TCPProtocol
+from mcli.packets.send.status.request import Ping
 from mcli.protocol import CommonProtocol, TCPProtocol, UncompressedProtocol
 from mcli.utils import is_valid_ip
 
@@ -18,20 +20,39 @@ class Client:
         self.state = State.handshaking
         self.__listeners: Dict[type, List[asyncio.Future]] = {}
 
-    async def query_status(self, host: str, port: int):
-        await self.connect(host, port, 1)
-        self.protocol.send(RequestStatus())
-        await asyncio.sleep(5)
+    async def query_status(self, host: str, port: int) -> Tuple[dict, int]:
+        await self._connect(host, port, State.status, tcp=True)
 
-    async def connect(self, host: str, port: int, next_state: State, version: int = -1):
-        loop = asyncio.get_running_loop()
+        self.protocol.send(RequestStatus())
+        status = await self.wait_for(ResponseStatus)
+
+        self.protocol.send(Ping(int(time.perf_counter() * 1000)))
+        ping = await self.wait_for(Pong)
+        ping = int(time.perf_counter() * 1000) - ping.payload
+
+        return json.loads(status.response), ping
+
+    async def connect(self, host: str, port: int, version: int = -1):
+        if version == -1:
+            # Discover the server's version
+            status, _ = await self.query_status(host, port)
+            version = status['version']['protocol']
+        
+        await self._connect(host, port, State.login, version)
+
+    async def _connect(self, host: str, port: int, next_state: State, version: int = -1, tcp: bool = False):
         if not is_valid_ip(host):
             # TODO: Check for SRV record
             pass
-        _, self.protocol = await loop.create_connection(lambda: UncompressedProtocol(self.manager), host, port)
+
+        loop = asyncio.get_running_loop()
+        if tcp:
+            _, self.protocol = await loop.create_connection(lambda: TCPProtocol(self.manager), host, port)
+        else:
+            _, self.protocol = await loop.create_datagram_endpoint(lambda: UncompressedProtocol(self.manager), remote_addr=(host, port))
 
         self.protocol.send(Handshake(version, host, port, int(next_state)))
-        self.state = State.status
+        self.state = next_state
 
     async def login(self, username: str, password: str):
         pass
@@ -62,7 +83,7 @@ class Client:
 
     @property
     def is_connected(self):
-        return False
+        return self.protocol is not None and not self.protocol.transport.is_closing()
 
     @property
     def is_logged(self):
