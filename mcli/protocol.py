@@ -4,16 +4,18 @@ import zlib
 from mcli.packets.manager import Manager
 from mcli.packets.packet import Packet, ReadPacket, WritePacket
 
+__all__ = ['UncompressedProtocol', 'CompressedProtocol']
 
-__all__ = ['CommonProtocol', 'TCPProtocol', 'UncompressedProtocol', 'CompressedProtocol']
 
-
-class CommonProtocol(asyncio.BaseProtocol):
-    __slots__ = ('transport', 'manager')
+class UncompressedProtocol(asyncio.Protocol):
+    __slots__ = ('transport', 'manager', 'buffer', 'length', 'pos')
 
     def __init__(self, manager: Manager):
         self.transport: asyncio.Transport = None
         self.manager = manager
+        self.buffer = bytearray()
+        self.length = 0
+        self.pos = 0
 
     def connection_made(self, transport: asyncio.Transport):
         self.transport = transport
@@ -24,14 +26,6 @@ class CommonProtocol(asyncio.BaseProtocol):
     def send(self, packet: Packet):
         data = packet.export()
         self.transport.write(WritePacket().writeVarInt(len(data)).buffer + data.buffer)
-
-
-class TCPProtocol(CommonProtocol, asyncio.Protocol):
-    def __init__(self, manager: Manager):
-        self.buffer = bytearray()
-        self.length = 0
-        self.pos = 0
-        super().__init__(manager)
 
     def data_received(self, data):
         # TCP can split a single packet into several segments.
@@ -50,33 +44,19 @@ class TCPProtocol(CommonProtocol, asyncio.Protocol):
                     raise ValueError('VarInt is too long!')
 
             if len(self.buffer) >= self.length:
-                packet = ReadPacket(self.buffer[self.pos:self.pos+self.length])
-                self.manager.handle(packet.readVarInt(), packet)
+                endpos = self.pos + self.length
+                packet = ReadPacket(self.buffer[self.pos:endpos])
+                self.handle_packet(packet.readVarInt(), packet)
 
-                del self.buffer[:self.pos+self.length]
+                del self.buffer[:endpos]
                 self.length = self.pos = 0
+
+    def handle_packet(self, id_: int, packet: ReadPacket):
+        print(id_, self.manager.client.state, packet)
+        self.manager.handle(id_, packet)
 
     def eof_received(self):
         print("eof received")
-
-
-class UncompressedProtocol(CommonProtocol, asyncio.DatagramProtocol):
-    def datagram_received(self, data, addr):
-        # UDP does not split packets
-        packet = ReadPacket(data)
-        length = packet.readVarInt()
-
-        if packet.remaining < length:
-            print(packet)
-            raise Exception("Not enough data!")
-
-        self.manager.handle(packet.readVarInt(), packet)
-        if packet.remaining > 0:
-            print(packet)
-            raise Exception("Remaining data!")
-
-    def error_received(self, exc):
-        print(exc)
 
 
 class CompressedProtocol(UncompressedProtocol):
@@ -84,26 +64,12 @@ class CompressedProtocol(UncompressedProtocol):
         self.threshold = threshold
         super().__init__(manager)
 
-    def datagram_received(self, data, addr):
-        # UDP does not split packets
-        packet = ReadPacket(data)
-        length = packet.readVarInt()
-        pos = packet.pos
-
-        if packet.remaining < length:
-            print(packet)
-            raise Exception("Not enough data!")
-
-        data_length = packet.readVarInt()
-
-        if data_length > self.threshold:
+    def handle_packet(self, size: int, packet: ReadPacket):
+        if size > self.threshold:
             raise Exception("Wrong threshold!")
 
-        super().datagram_received(zlib.decompress(packet.readBytes(length - (packet.pos - pos))))
-
-        if packet.remaining > 0:
-            print(packet)
-            raise Exception("Remaining data!")
+        packet = ReadPacket(zlib.decompress(packet.readBytes(packet.remaining), bufsize=size))
+        super().handle_packet(packet.readVarInt(), packet)
 
     def send(self, packet: Packet):
         data = packet.export().buffer

@@ -9,19 +9,19 @@ from mcli.packets.recv.status.response import Pong, ResponseStatus
 from mcli.packets.send.handshaking import Handshake
 from mcli.packets.send.status import RequestStatus
 from mcli.packets.send.status.request import Ping
-from mcli.protocol import CommonProtocol, TCPProtocol, UncompressedProtocol
+from mcli.protocol import UncompressedProtocol
 from mcli.utils import is_valid_ip
 
 
 class Client:
     def __init__(self):
-        self.protocol: CommonProtocol = None
+        self.protocol: UncompressedProtocol = None
         self.manager = Manager(self)
         self.state = State.handshaking
         self.__listeners: Dict[type, List[asyncio.Future]] = {}
 
     async def query_status(self, host: str, port: int) -> Tuple[dict, int]:
-        await self._connect(host, port, State.status, tcp=True)
+        await self._connect(host, port, State.status)
 
         self.protocol.send(RequestStatus())
         status = await self.wait_for(ResponseStatus)
@@ -40,16 +40,13 @@ class Client:
         
         await self._connect(host, port, State.login, version)
 
-    async def _connect(self, host: str, port: int, next_state: State, version: int = -1, tcp: bool = False):
+    async def _connect(self, host: str, port: int, next_state: State, version: int = -1):
         if not is_valid_ip(host):
             # TODO: Check for SRV record
             pass
 
         loop = asyncio.get_running_loop()
-        if tcp:
-            _, self.protocol = await loop.create_connection(lambda: TCPProtocol(self.manager), host, port)
-        else:
-            _, self.protocol = await loop.create_datagram_endpoint(lambda: UncompressedProtocol(self.manager), remote_addr=(host, port))
+        _, self.protocol = await loop.create_connection(lambda: UncompressedProtocol(self.manager), host, port)
 
         self.protocol.send(Handshake(version, host, port, int(next_state)))
         self.state = next_state
