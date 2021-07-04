@@ -136,7 +136,7 @@ class ReadPacket:
 
     def readUUID(self) -> uuid.UUID:
         """Read an UUID an return it."""
-        return uuid.UUID(self.readBytes(32))
+        return uuid.UUID(bytes=bytes(self.readBytes(16)))
 
 
 class WritePacket:
