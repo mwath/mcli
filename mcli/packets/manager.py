@@ -1,6 +1,7 @@
+import asyncio
 import warnings
 from enum import IntEnum
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 import mcli
 
@@ -46,5 +47,10 @@ class Manager:
             return
 
         pkt = factory.from_bytes(packet)
+
+        if pkt.__class__.handle != mcli.Packet.handle:
+            asyncio.create_task(pkt.handle(self.client))
+
         self.client.dispatch(pkt)
-        # TODO: add handlers
+
+        # TODO: add external handlers

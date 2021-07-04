@@ -1,5 +1,6 @@
 from collections import OrderedDict
 
+import mcli
 from mcli.packets.basepacket import ReadPacket, WritePacket
 from mcli.packets.manager import Manager, State
 from mcli.packets.types import registered as registered_types
@@ -64,6 +65,9 @@ class Packet(metaclass=PacketMeta):
             type_.pack(packet, getattr(self, attr))
 
         return packet
+
+    async def handle(self, client: 'mcli.Client'):
+        raise NotImplementedError()
 
     @classmethod
     def from_bytes(cls, packet: ReadPacket) -> 'Packet':
