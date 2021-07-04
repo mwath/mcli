@@ -22,10 +22,10 @@ class _buffer:
 class UncompressedProtocol(asyncio.BufferedProtocol):
     __slots__ = ('transport', 'manager', 'buffer', 'reader', '_waiting')
 
-    def __init__(self, manager: Manager):
+    def __init__(self, manager: Manager, buffer: memoryview = None):
         self.transport: asyncio.Transport = None
         self.manager = manager
-        self.buffer = memoryview(bytearray(256 * 1024))
+        self.buffer = memoryview(bytearray(256 * 1024)) if buffer is None else buffer
         self.reader = ReadPacket(self.buffer)
         self._waiting: _buffer = None
 
@@ -78,9 +78,12 @@ class UncompressedProtocol(asyncio.BufferedProtocol):
 
 
 class CompressedProtocol(UncompressedProtocol):
-    def __init__(self, manager: Manager, threshold: int):
+    def __init__(self, threshold: int, protocol: UncompressedProtocol):
+        super().__init__(protocol.manager, buffer=protocol.buffer)
         self.threshold = threshold
-        super().__init__(manager)
+        self._waiting = protocol._waiting
+        self.reader = protocol.reader
+        protocol.transport.set_protocol(self)
 
     def handle_packet(self, size: int, packet: ReadPacket):
         if size > self.threshold:

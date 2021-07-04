@@ -1,5 +1,7 @@
+import mcli
 from mcli.packets import Packet
-from mcli.packets.types import varint, uuid
+from mcli.packets.types import uuid, varint
+from mcli.protocol import CompressedProtocol
 
 
 class DisconnectLogin(Packet, id=0x00):
@@ -19,6 +21,9 @@ class LoginSuccess(Packet, id=0x02):
 
 class SetCompression(Packet, id=0x03):
     threshold: varint
+
+    async def handle(self, client: 'mcli.Client'):
+        client.protocol = CompressedProtocol(self.threshold, client.protocol)
 
 
 class LoginPluginRequest(Packet, id=0x04):
