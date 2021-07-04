@@ -7,15 +7,27 @@ from mcli.packets.packet import Packet, ReadPacket, WritePacket
 __all__ = ['UncompressedProtocol', 'CompressedProtocol']
 
 
-class UncompressedProtocol(asyncio.Protocol):
-    __slots__ = ('transport', 'manager', 'buffer', 'length', 'pos')
+class _buffer:
+    __slots__ = ('data', 'length')
+
+    def __init__(self, data: memoryview, length: int):
+        self.data = bytearray(data)
+        self.length = length
+
+    @property
+    def remaining(self):
+        return self.length - len(self.data)
+
+
+class UncompressedProtocol(asyncio.BufferedProtocol):
+    __slots__ = ('transport', 'manager', 'buffer', 'reader', '_waiting')
 
     def __init__(self, manager: Manager):
         self.transport: asyncio.Transport = None
         self.manager = manager
-        self.buffer = bytearray()
-        self.length = 0
-        self.pos = 0
+        self.buffer = memoryview(bytearray(256 * 1024))
+        self.reader = ReadPacket(self.buffer)
+        self._waiting: _buffer = None
 
     def connection_made(self, transport: asyncio.Transport):
         self.transport = transport
@@ -27,29 +39,37 @@ class UncompressedProtocol(asyncio.Protocol):
         data = packet.export()
         self.transport.write(WritePacket().writeVarInt(len(data)).buffer + data.buffer)
 
-    def data_received(self, data):
-        # TCP can split a single packet into several segments.
-        self.buffer.extend(data)
+    def get_buffer(self, sizehint: int) -> bytearray:
+        return self.buffer[self.reader.pos:]
 
-        while len(self.buffer) > self.length:
-            if self.length == 0:
-                for i in range(5):
-                    byte = self.buffer[self.pos]
-                    self.length |= (byte & 127) << (i * 7)
-                    self.pos += 1
-
-                    if not byte & 0x80:
-                        break
-                else:
-                    raise ValueError('VarInt is too long!')
-
-            if len(self.buffer) >= self.length:
-                endpos = self.pos + self.length
-                packet = ReadPacket(self.buffer[self.pos:endpos])
+    def buffer_updated(self, nbytes: int):
+        if self._waiting is not None:
+            remaining = self._waiting.remaining
+            if remaining <= nbytes:
+                packet = ReadPacket(self._waiting.data)
+                packet.buffer.extend(self.buffer[:remaining])
+                self.reader.pos = remaining
                 self.handle_packet(packet.readVarInt(), packet)
+                self._waiting = None
+                return
 
-                del self.buffer[:endpos]
-                self.length = self.pos = 0
+            self._waiting.data.extend(self.buffer)
+            return
+
+        endpos = self.reader.pos + nbytes
+        print(nbytes, bytes(self.reader.buffer[self.reader.pos:endpos]))
+
+        while self.reader.pos < endpos:
+            length = self.reader.readVarInt()
+
+            if self.reader.pos + length <= endpos:
+                packet = ReadPacket(self.reader.readBytes(length))
+                self.handle_packet(packet.readVarInt(), packet)
+            elif self.reader.pos + length > len(self.buffer):
+                self._waiting = _buffer(self.buffer, length)
+                self.reader.pos = 0
+            else:
+                break
 
     def handle_packet(self, id_: int, packet: ReadPacket):
         print(id_, self.manager.client.state, packet)

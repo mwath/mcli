@@ -15,8 +15,8 @@ class Types:
 
 
 class ReadPacket:
-    def __init__(self, buffer: ByteString = None):
-        self.buffer = bytearray() if buffer is None else bytearray(buffer)
+    def __init__(self, buffer: ByteString):
+        self.buffer = buffer
         self.pos = 0
 
     def __len__(self):
@@ -82,7 +82,7 @@ class ReadPacket:
 
     def readString(self) -> str:
         """Read a string and return it."""
-        return self.readBytes(self.readVarInt()).decode('utf-8')
+        return bytes(self.readBytes(self.readVarInt())).decode('utf-8')
 
     def readVarInt(self) -> int:
         """Read a variable length int and return it."""
