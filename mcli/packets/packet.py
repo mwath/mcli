@@ -1,8 +1,8 @@
 from collections import OrderedDict
 
-from mcli.packets.types import registered as registered_types
 from mcli.packets.basepacket import ReadPacket, WritePacket
 from mcli.packets.manager import Manager, State
+from mcli.packets.types import registered as registered_types
 
 
 class PacketMeta(type):
@@ -67,4 +67,7 @@ class Packet(metaclass=PacketMeta):
 
     @classmethod
     def from_bytes(cls, packet: ReadPacket) -> 'Packet':
-        return cls(*(t.unpack(packet) for t in cls._types.values()))
+        try:
+            return cls(*(t.unpack(packet) for t in cls._types.values()))
+        except Exception:
+            raise Exception(f"Unable to parse packet {cls.__name__} (0x{cls._id:x}).")
