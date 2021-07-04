@@ -57,7 +57,6 @@ class UncompressedProtocol(asyncio.BufferedProtocol):
             return
 
         endpos = self.reader.pos + nbytes
-        print(nbytes, bytes(self.reader.buffer[self.reader.pos:endpos]))
 
         while self.reader.pos < endpos:
             length = self.reader.readVarInt()
@@ -72,7 +71,6 @@ class UncompressedProtocol(asyncio.BufferedProtocol):
                 break
 
     def handle_packet(self, id_: int, packet: ReadPacket):
-        print(id_, self.manager.client.state, packet)
         self.manager.handle(id_, packet)
 
     def eof_received(self):
