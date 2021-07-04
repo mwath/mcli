@@ -1,3 +1,5 @@
+import math
+
 from mcli.packets.basepacket import ReadPacket, WritePacket
 
 __all__ = [
@@ -115,3 +117,14 @@ class angle:
 class uuid:
     pack = WritePacket.writeUUID
     unpack = ReadPacket.readUUID
+
+
+@register
+class remaining:
+    @classmethod
+    def pack(cls, packet: WritePacket, value: bytes):
+        packet.writeBytes(value)
+
+    @classmethod
+    def unpack(cls, packet: ReadPacket) -> bytes:
+        return packet.readBytes(packet.remaining)
