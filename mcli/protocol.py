@@ -87,9 +87,8 @@ class CompressedProtocol(UncompressedProtocol):
 
     def handle_packet(self, size: int, packet: ReadPacket):
         if size > self.threshold:
-            raise Exception("Wrong threshold!")
+            packet = ReadPacket(zlib.decompress(packet.readBytes(packet.remaining), bufsize=size))
 
-        packet = ReadPacket(zlib.decompress(packet.readBytes(packet.remaining), bufsize=size))
         super().handle_packet(packet.readVarInt(), packet)
 
     def send(self, packet: Packet):
