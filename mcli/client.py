@@ -3,10 +3,14 @@ import json
 import time
 from typing import Dict, List, Tuple
 
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
 from mcli.packets.manager import Manager, State
-from mcli.packets.packet import Packet, ReadPacket
+from mcli.packets.packet import ReadPacket
+from mcli.packets.recv.login.login import EncryptionRequest, LoginSuccess
 from mcli.packets.recv.status.response import Pong, ResponseStatus
 from mcli.packets.send.handshaking import Handshake
+from mcli.packets.send.login.login import LoginStart
 from mcli.packets.send.status import RequestStatus
 from mcli.packets.send.status.request import Ping
 from mcli.protocol import UncompressedProtocol
@@ -32,13 +36,14 @@ class Client:
 
         return json.loads(status.response), ping
 
-    async def connect(self, host: str, port: int, version: int = -1):
+    async def connect(self, host: str, port: int, username: str, password: str, version: int = -1):
         if version == -1:
             # Discover the server's version
             status, _ = await self.query_status(host, port)
             version = status['version']['protocol']
-        
+
         await self._connect(host, port, State.login, version)
+        await self.login(username, password)
 
     async def _connect(self, host: str, port: int, next_state: State, version: int = -1):
         if not is_valid_ip(host):
@@ -52,7 +57,19 @@ class Client:
         self.state = next_state
 
     async def login(self, username: str, password: str):
-        pass
+        if self.state != State.login:
+            raise Exception("Wrong state!")
+
+        self.protocol.send(LoginStart(username))
+        tasks = {self.wait_for(LoginSuccess), self.wait_for(EncryptionRequest)}
+        (done,), (pending,) = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        pending.cancel()
+        packet = done.result()
+        if isinstance(packet, EncryptionRequest):
+            cipher = Cipher(algorithms.AES(packet.public_key), modes.CFB8(packet.public_key))
+
+        packet = await self.wait_for(LoginSuccess)
+        print(packet)
 
     async def disconnect(self):
         pass
