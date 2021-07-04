@@ -40,7 +40,7 @@ class PacketMeta(type):
                 if type_ not in registered_types:
                     raise TypeError(f'The type {type_} is not supported.')
 
-                types[name] = registered_types[type_]
+                types[name] = (registered_types[type_], classdict.pop(name, None))
 
         klass = super().__new__(cls, clsname, bases, classdict)
         if register:
@@ -51,8 +51,12 @@ class PacketMeta(type):
 
 class Packet(metaclass=PacketMeta):
     def __init__(self, *args, **kwargs):
-        for i, name in enumerate(self._types):
-            setattr(self, name, kwargs.get(name, args[i]))
+        for i, (name, (_, checker)) in enumerate(self._types.items()):
+            value = kwargs.get(name, args[i])
+            if checker is not None and not checker.check(value):
+                raise ValueError(f"Invalid value {value!r} for attribute {name!r}. Constrain: {checker}.")
+
+            setattr(self, name, value)
 
     def __repr__(self):
         attr = ' '.join(f'{name}={getattr(self, name)!r}' for name in self._types)
@@ -61,7 +65,7 @@ class Packet(metaclass=PacketMeta):
     def export(self) -> bytes:
         packet = WritePacket().writeVarInt(self._id)
 
-        for attr, type_ in self._types.items():
+        for attr, (type_, _) in self._types.items():
             type_.pack(packet, getattr(self, attr))
 
         return packet
@@ -72,6 +76,6 @@ class Packet(metaclass=PacketMeta):
     @classmethod
     def from_bytes(cls, packet: ReadPacket) -> 'Packet':
         try:
-            return cls(*(t.unpack(packet) for t in cls._types.values()))
+            return cls(*(t.unpack(packet) for t, _ in cls._types.values()))
         except Exception:
             raise Exception(f"Unable to parse packet {cls.__name__} (0x{cls._id:x}).")

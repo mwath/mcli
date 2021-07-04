@@ -3,8 +3,8 @@ import math
 from mcli.packets.basepacket import ReadPacket, WritePacket
 
 __all__ = [
-    'registered', 'varint', 'varlong', 'ubyte', 'sbyte', 'ushort',
-    'sshort', 'long', 'double', 'position', 'angle', 'uuid'
+    'registered', 'varint', 'varlong', 'ubyte', 'sbyte', 'ushort', 'sshort', 'long', 'double', 'position', 'angle',
+    'uuid', 'constr', 'remaining'
 ]
 
 
@@ -128,3 +128,24 @@ class remaining:
     @classmethod
     def unpack(cls, packet: ReadPacket) -> bytes:
         return packet.readBytes(packet.remaining)
+
+
+class Constrain:
+    def check(self, value) -> bool:
+        raise NotImplementedError()
+
+
+class constr(Constrain):
+    def __init__(self, *, min: int = None, max: int = None):
+        if min is None and max is None:
+            raise ValueError("At least one argument must be given: min, max")
+
+        self.min = min or 0
+        self.max = max or math.inf
+
+    def __repr__(self) -> str:
+        max_ = f', max={self.max}' if self.max < math.inf else ''
+        return f'constr(min={self.min}{max_})'
+
+    def check(self, value: str) -> bool:
+        return self.min <= len(value) <= self.max
