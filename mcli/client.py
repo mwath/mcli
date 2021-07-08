@@ -69,6 +69,7 @@ class Client:
         pending.cancel()
         packet = done.result()
         if isinstance(packet, EncryptionRequest):
+            await self.protocol.init_encryption(packet, self.auth)
             packet = await self.wait_for(LoginSuccess)
 
         print(packet)
