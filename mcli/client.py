@@ -3,8 +3,7 @@ import json
 import time
 from typing import Dict, List, Tuple
 
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-
+from mcli.authentication import Authentication
 from mcli.packets.manager import Manager, State
 from mcli.packets.packet import ReadPacket
 from mcli.packets.recv.login.login import EncryptionRequest, LoginSuccess
@@ -18,7 +17,8 @@ from mcli.utils import is_valid_ip
 
 
 class Client:
-    def __init__(self):
+    def __init__(self, auth: Authentication):
+        self.auth = auth
         self.protocol: UncompressedProtocol = None
         self.manager = Manager(self)
         self.state = State.handshaking
@@ -36,14 +36,17 @@ class Client:
 
         return json.loads(status.response), ping
 
-    async def connect(self, host: str, port: int, username: str, password: str, version: int = -1):
+    async def connect(self, host: str, port: int, online: bool = False, version: int = -1):
         if version == -1:
             # Discover the server's version
             status, _ = await self.query_status(host, port)
             version = status['version']['protocol']
 
+        if online:
+            await self.auth.refresh()
+
         await self._connect(host, port, State.login, version)
-        await self.login(username, password)
+        await self.login()
 
     async def _connect(self, host: str, port: int, next_state: State, version: int = -1):
         if not is_valid_ip(host):
@@ -56,19 +59,18 @@ class Client:
         self.protocol.send(Handshake(version, host, port, int(next_state)))
         self.state = next_state
 
-    async def login(self, username: str, password: str):
+    async def login(self):
         if self.state != State.login:
             raise Exception("Wrong state!")
 
-        self.protocol.send(LoginStart(username))
+        self.protocol.send(LoginStart(self.auth.user.name))
         tasks = {self.wait_for(LoginSuccess), self.wait_for(EncryptionRequest)}
         (done,), (pending,) = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
         pending.cancel()
         packet = done.result()
         if isinstance(packet, EncryptionRequest):
-            cipher = Cipher(algorithms.AES(packet.public_key), modes.CFB8(packet.public_key))
+            packet = await self.wait_for(LoginSuccess)
 
-        packet = await self.wait_for(LoginSuccess)
         print(packet)
 
     async def disconnect(self):
@@ -96,9 +98,9 @@ class Client:
         return await asyncio.wait_for(fut, timeout)
 
     @property
-    def is_connected(self):
+    def is_connected(self) -> bool:
         return self.protocol is not None and not self.protocol.transport.is_closing()
 
     @property
-    def is_logged(self):
+    def is_logged(self) -> bool:
         return False
