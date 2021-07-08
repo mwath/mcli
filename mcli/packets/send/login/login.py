@@ -1,5 +1,5 @@
 from mcli.packets import Packet
-from mcli.packets.types import varint
+from mcli.packets.types import remaining, varint
 
 
 class LoginStart(Packet, id=0x00):
@@ -14,4 +14,4 @@ class EncryptionReponse(Packet, id=0x01):
 class LoginPluginResponse(Packet, id=0x02):
     message_id: varint
     successful: bool
-    #data: bytearray
+    data: remaining

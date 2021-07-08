@@ -1,6 +1,6 @@
 import mcli
 from mcli.packets import Packet
-from mcli.packets.types import uuid, varint
+from mcli.packets.types import remaining, uuid, varint
 from mcli.protocol import CompressedProtocol
 
 
@@ -29,4 +29,4 @@ class SetCompression(Packet, id=0x03):
 class LoginPluginRequest(Packet, id=0x04):
     message_id: varint
     channel: str
-    # data: bytearray
+    data: remaining
