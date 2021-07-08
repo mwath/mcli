@@ -93,7 +93,7 @@ class CompressedProtocol(UncompressedProtocol):
         protocol.transport.set_protocol(self)
 
     def handle_packet(self, size: int, packet: ReadPacket):
-        if size > self.threshold:
+        if size > 0:
             packet = ReadPacket(zlib.decompress(packet.readBytes(packet.remaining), bufsize=size))
 
         super().handle_packet(packet.readVarInt(), packet)
@@ -103,7 +103,7 @@ class CompressedProtocol(UncompressedProtocol):
         length = len(data)
 
         if length >= self.threshold:
-            data = WritePacket().writeVarInt(length).buffer + zlib.compress(data)
+            data = WritePacket().writeVarInt(length).writeBytes(zlib.compress(data)).buffer
             length = len(data)
 
-        self.transport.write(WritePacket().writeVarInt(length).buffer + data)
+        super().send(WritePacket().writeVarInt(length).writeBytes(data).buffer)
