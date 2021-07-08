@@ -20,13 +20,14 @@ class _buffer:
 
 
 class UncompressedProtocol(asyncio.BufferedProtocol):
-    __slots__ = ('transport', 'manager', 'buffer', 'reader', '_waiting')
+    __slots__ = ('transport', 'manager', 'buffer', 'reader', '_waiting', 'write_pos')
 
     def __init__(self, manager: Manager, buffer: memoryview = None):
         self.transport: asyncio.Transport = None
         self.manager = manager
         self.buffer = memoryview(bytearray(256 * 1024)) if buffer is None else buffer
         self.reader = ReadPacket(self.buffer)
+        self.write_pos: int = 0
         self._waiting: _buffer = None
 
     def connection_made(self, transport: asyncio.Transport):
@@ -40,7 +41,7 @@ class UncompressedProtocol(asyncio.BufferedProtocol):
         self.transport.write(WritePacket().writeVarInt(len(data)).buffer + data.buffer)
 
     def get_buffer(self, sizehint: int) -> bytearray:
-        return self.buffer[self.reader.pos:]
+        return self.buffer[self.write_pos:]
 
     def buffer_updated(self, nbytes: int):
         if self._waiting is not None:
@@ -59,6 +60,7 @@ class UncompressedProtocol(asyncio.BufferedProtocol):
         endpos = self.reader.pos + nbytes
 
         while self.reader.pos < endpos:
+            startpos = self.reader.pos
             length = self.reader.readVarInt()
 
             if self.reader.pos + length <= endpos:
@@ -66,9 +68,14 @@ class UncompressedProtocol(asyncio.BufferedProtocol):
                 self.handle_packet(packet.readVarInt(), packet)
             elif self.reader.pos + length > len(self.buffer):
                 self._waiting = _buffer(self.buffer, length)
-                self.reader.pos = 0
-            else:
                 break
+            else:
+                self.write_pos = endpos
+                self.reader.pos = startpos
+                return
+
+        self.reader.pos = 0
+        self.write_pos = 0
 
     def handle_packet(self, id_: int, packet: ReadPacket):
         self.manager.handle(id_, packet)
