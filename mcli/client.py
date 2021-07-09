@@ -72,6 +72,7 @@ class Client:
             await self.protocol.init_encryption(packet, self.auth)
             packet = await self.wait_for(LoginSuccess)
 
+        self.state = State.play
         print(packet)
 
     async def disconnect(self):
