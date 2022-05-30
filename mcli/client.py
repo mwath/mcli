@@ -6,12 +6,12 @@ from typing import Dict, List, Tuple
 from mcli.authentication import Authentication
 from mcli.packets.manager import Manager, State
 from mcli.packets.packet import ReadPacket
-from mcli.packets.recv.login.login import EncryptionRequest, LoginSuccess
-from mcli.packets.recv.status.response import Pong, ResponseStatus
-from mcli.packets.send.handshaking import Handshake
-from mcli.packets.send.login.login import LoginStart
-from mcli.packets.send.status import RequestStatus
-from mcli.packets.send.status.request import Ping
+from mcli.packets.clientbound.login.login import EncryptionRequest, LoginSuccess
+from mcli.packets.clientbound.status.response import Pong, ResponseStatus
+from mcli.packets.serverbound.handshaking import Handshake
+from mcli.packets.serverbound.login.login import LoginStart
+from mcli.packets.serverbound.status import RequestStatus
+from mcli.packets.serverbound.status.request import Ping
 from mcli.protocol import UncompressedProtocol
 from mcli.utils import is_valid_ip
 

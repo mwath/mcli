@@ -36,7 +36,7 @@ class Manager:
         return wrapper
 
     def get(self, packet_id: int) -> Optional['mcli.Packet']:
-        # return self.recv.get(packet_id, version=self.client.protocol.version)
+        # return self.clientbound.get(packet_id, version=self.client.protocol.version)
         return self.packets.get((self.client.state, packet_id))
 
     def handle(self, packet_id: int, packet: 'mcli.ReadPacket'):

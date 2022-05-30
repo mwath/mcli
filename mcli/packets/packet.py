@@ -56,7 +56,7 @@ class PacketMeta(type):
         module = classdict['__module__']
         if module.startswith('mcli.packets'):
             state = module.split('.')[3].lower()
-            register = module.split('.')[2] == 'recv'
+            register = module.split('.')[2] == 'clientbound'
         else:
             if 'state' not in kwargs:
                 raise ValueError('Packet state is missing.')

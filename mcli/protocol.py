@@ -8,7 +8,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, CipherContext, algori
 from cryptography.hazmat.primitives.serialization import load_der_public_key
 
 from mcli.authentication import Authentication
-from mcli.packets import recv, send
+from mcli.packets import clientbound, serverbound
 from mcli.packets.manager import Manager
 from mcli.packets.packet import Packet, ReadPacket, WritePacket
 from mcli.utils import minecraft_sha1
@@ -47,7 +47,7 @@ class UncompressedProtocol(asyncio.BufferedProtocol):
     def connection_lost(self, exc: Exception):
         print("connection lost:", exc)
 
-    async def init_encryption(self, packet: 'recv.login.EncryptionRequest', auth: Authentication):
+    async def init_encryption(self, packet: 'clientbound.login.EncryptionRequest', auth: Authentication):
         pubkey = load_der_public_key(packet.public_key)
         secret = os.urandom(16)
         token = pubkey.encrypt(bytes(packet.verify_token), PKCS1v15())
@@ -57,7 +57,7 @@ class UncompressedProtocol(asyncio.BufferedProtocol):
         if not await auth.join(server_id):
             raise RuntimeError("Unable to join the server")
 
-        self.send(send.login.EncryptionReponse(encrypted_secret, token))
+        self.send(serverbound.login.EncryptionReponse(encrypted_secret, token))
 
         cipher = Cipher(algorithms.AES(secret), modes.CFB8(secret))
         self.decryptor = cipher.decryptor()
